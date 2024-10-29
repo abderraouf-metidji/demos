@@ -1,0 +1,63 @@
+---
+title: "Analyse Bivariée"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+```
+
+```{r}
+df <- read.csv("dataset.csv")
+```
+
+```{r}
+is.na(df)
+```
+```{r}
+summary(df)
+```
+
+```{r}
+df_long <- df %>% 
+  select(HLM, Salairemoy, Ouvrier, Employe, PI, Cadres, Artisant, Agri, TxPauv, NonDiplome, txcho, txabs) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valeur")
+
+ggplot(df_long, aes(x = Valeur)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  facet_wrap(~ Variable, scales = "free") +  
+  labs(title = "Histogrammes de plusieurs variables") +
+  theme_minimal()
+
+```
+
+```{r}
+df_long <- df %>% 
+  select(HLM, Salairemoy, Ouvrier, Employe, PI, Cadres, Artisant, Agri, TxPauv, NonDiplome, txcho, txabs) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valeur")
+
+ggplot(df_long, aes(x = Valeur)) +
+  geom_boxplot(binwidth = 5, fill = "skyblue", color = "black") +
+  facet_wrap(~ Variable, scales = "free") +
+  labs(title = "Histogrammes de plusieurs variables") +
+  theme_minimal()
+```
+```{r}
+other_vars <- setdiff(names(df), c("txabs", "X", "Department", "Code"))
+
+plot_list <- map(other_vars, ~ ggplot(df, aes(y = txabs, x = .data[[.x]])) +
+                    geom_point(color = "blue", alpha = 0.6) +
+                    ggtitle(paste("txabs vs", .x)) +
+                    theme_minimal())
+
+grid.arrange(grobs = plot_list, ncol = 3)
+```
+```{r}
+cor.test(df$txabs, df$txcho)
+```
+```{r}
+anova_all <- aov(txabs ~ Agri + Cadres + Ouvrier + Employe + Artisant + PI, data = df)
+summary(anova_all)
+```
+
