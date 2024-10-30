@@ -1,63 +1,111 @@
----
-title: "Analyse Bivariée"
-output: html_notebook
----
+Import des librairies nécessaires
 ```{r}
 library(tidyverse)
-library(ggplot2)
-library(gridExtra)
+library(compositions)
+library(factoextra)
+library(FactoMineR)
 ```
 
+Import du dataset
 ```{r}
 df <- read.csv("dataset.csv")
+
 ```
 
+Résumé du dataset
 ```{r}
-is.na(df)
-```
-```{r}
+str(df)
 summary(df)
 ```
 
+Analyse univariée
 ```{r}
-df_long <- df %>% 
-  select(HLM, Salairemoy, Ouvrier, Employe, PI, Cadres, Artisant, Agri, TxPauv, NonDiplome, txcho, txabs) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valeur")
-
-ggplot(df_long, aes(x = Valeur)) +
-  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
-  facet_wrap(~ Variable, scales = "free") +  
-  labs(title = "Histogrammes de plusieurs variables") +
-  theme_minimal()
-
-```
-
-```{r}
-df_long <- df %>% 
-  select(HLM, Salairemoy, Ouvrier, Employe, PI, Cadres, Artisant, Agri, TxPauv, NonDiplome, txcho, txabs) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valeur")
-
-ggplot(df_long, aes(x = Valeur)) +
-  geom_boxplot(binwidth = 5, fill = "skyblue", color = "black") +
-  facet_wrap(~ Variable, scales = "free") +
-  labs(title = "Histogrammes de plusieurs variables") +
+df %>%
+  select_if(is.numeric) %>%
+  gather() %>%
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30) +
+  facet_wrap(~ key, scales = 'free') +
   theme_minimal()
 ```
+Analyse bivariée 
 ```{r}
-other_vars <- setdiff(names(df), c("txabs", "X", "Department", "Code"))
+# Matrice de corrélation
+correlation_matrix <- cor(df %>% select_if(is.numeric))
+corrplot::corrplot(correlation_matrix, method = "circle")
+```
+```{r}
+# Scatter plots pour les variables numériques
+ggplot(df, aes(x = TxPauv, y = txabs)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Relation entre le taux de pauvreté et le taux d'abstention")
 
-plot_list <- map(other_vars, ~ ggplot(df, aes(y = txabs, x = .data[[.x]])) +
-                    geom_point(color = "blue", alpha = 0.6) +
-                    ggtitle(paste("txabs vs", .x)) +
-                    theme_minimal())
+```
+Variables descriptives
+```{r}
+# Nombre de variables descriptives
+descriptive_vars <- df %>% select_if(is.numeric) %>% colnames()
+length(descriptive_vars)  # Nombre de variables
 
-grid.arrange(grobs = plot_list, ncol = 3)
+# Vérification des données compositionnelles
+# Vous devrez définir quelles colonnes sont compositionnelles (par exemple, proportions)
+compositionnal_vars <- c("Ouvrier", "Employe", "Cadres", "Artisant", "Agri")  # Exemple
+
 ```
 ```{r}
-cor.test(df$txabs, df$txcho)
+# PCA
+pca_result <- prcomp(df %>% select_if(is.numeric), scale. = TRUE)
+summary(pca_result)
+
+# Visualisation des résultats PCA
+biplot(pca_result)
 ```
+PC1 est la composante la plus importante, expliquant une grande partie de la variance dans vos données.
+PC2 et PC3 sont également significatifs mais expliquent beaucoup moins de variance.
+
 ```{r}
-anova_all <- aov(txabs ~ Agri + Cadres + Ouvrier + Employe + Artisant + PI, data = df)
-summary(anova_all)
+# Supprimer les colonnes non pertinentes
+df_clean <- df[, !colnames(df) %in% c("X", "Department", "Code")]
 ```
+
+
+```{r}
+data_acp <- scale(df_clean[sapply(df_clean, is.numeric)])
+result_acp <- PCA(df_clean, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_screeplot(result_acp)
+fviz_pca_var(result_acp)
+fviz_pca_ind(result_acp)
+```
+
+```{r}
+# Préparer le dataset : sélectionner les colonnes pertinentes et ignorer celles qui n'ont pas de valeur ajoutée
+df_acm <- df %>%
+  select(-c(Department, Code))
+
+# Assurez-vous que les colonnes de votre dataset sont de type facteur si nécessaire
+df_acm <- df_acm %>%
+  mutate(across(everything(), as.factor))
+
+# Réaliser l'ACM
+acm_result <- MCA(df_acm, graph = FALSE)
+
+# Visualiser les résultats de l'ACM avec des ajustements
+fviz_mca_biplot(acm_result, 
+                 repel = TRUE,        # Évite le chevauchement des étiquettes
+                 geom.ind = "point",  # Utilise des points pour les individus
+                 geom.var = "arrow",   # Utilise des flèches pour les variables
+                 label = "none",       # N'affiche pas les labels
+                 pointsize = 2,        # Taille des points
+                 col.var = "cos2",     # Couleur des flèches en fonction de la qualité de représentation
+                 gradient.cols = "RdYlBu") +  # Choix des couleurs
+  labs(title = "Analyse en Composantes Multiples (ACM)", 
+       x = "Dim 1", 
+       y = "Dim 2") +
+  theme_minimal() +
+  theme(legend.position = "bottom")  # Position de la légende
+```
+
 
