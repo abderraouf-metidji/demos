@@ -1,4 +1,4 @@
-Import des librairies nécessaires
+# Import des librairies nécessaires
 ```{r}
 library(tidyverse)
 library(compositions)
@@ -6,19 +6,19 @@ library(factoextra)
 library(FactoMineR)
 ```
 
-Import du dataset
+# Import du dataset
 ```{r}
 df <- read.csv("dataset.csv")
 
 ```
 
-Résumé du dataset
+# Résumé du dataset
 ```{r}
 str(df)
 summary(df)
 ```
 
-Analyse univariée
+# Analyse univariée
 ```{r}
 df %>%
   select_if(is.numeric) %>%
@@ -28,12 +28,39 @@ df %>%
   facet_wrap(~ key, scales = 'free') +
   theme_minimal()
 ```
-Analyse bivariée 
+Ce qu'on observe via ces premiers graphique c'est que nous avons principalement des variables quantitatives. 
+
+Certaines de ces variables sont compositionnelles et d'autres représentent des taux. Parmis les variables compositionnelles on retrouve les catégories socio-professionnelles qui une fois additionnés par région nous donne 100% ce qui représente la population dans son entiereté.
+
+# Analyse bivariée 
 ```{r}
 # Matrice de corrélation
 correlation_matrix <- cor(df %>% select_if(is.numeric))
 corrplot::corrplot(correlation_matrix, method = "circle")
 ```
+```{r}
+# Variables compositionnelles
+compositionnal_vars <- c("HLM", "Ouvrier", "Employe", "Cadres", "Artisant", "Agri")
+
+# Transformation CLR sur les données compositionnelles
+clr_data <- clr(df[, compositionnal_vars])
+
+# Sélectionner les autres variables d'intérêt
+other_vars <- c("Salairemoy", "TxPauv", "NonDiplome", "txcho", "txabs")  # Assurez-vous de bien écrire "txabs"
+other_data <- df[, other_vars]
+
+# Combiner les données CLR et les autres variables dans un même dataframe
+df_correlation <- cbind(as.data.frame(clr_data), other_data)
+
+# Calculer la matrice de corrélation
+correlation_matrix <- cor(df_correlation)
+
+# Visualiser la matrice de corrélation
+library(corrplot)
+corrplot(correlation_matrix, method = "circle")
+```
+La corrélation est plus importante une fois la transformation des valeurs composite effectuée, mais seulement sur certaines variables. Globalement on a une variation positive et négative au niveau des différentes corrélations. 
+
 ```{r}
 # Scatter plots pour les variables numériques
 ggplot(df, aes(x = TxPauv, y = txabs)) +
@@ -43,23 +70,27 @@ ggplot(df, aes(x = TxPauv, y = txabs)) +
   labs(title = "Relation entre le taux de pauvreté et le taux d'abstention")
 
 ```
-Variables descriptives
+
+
+# Variables descriptives
 ```{r}
 # Nombre de variables descriptives
 descriptive_vars <- df %>% select_if(is.numeric) %>% colnames()
 length(descriptive_vars)  # Nombre de variables
 
-# Vérification des données compositionnelles
-# Vous devrez définir quelles colonnes sont compositionnelles (par exemple, proportions)
-compositionnal_vars <- c("Ouvrier", "Employe", "Cadres", "Artisant", "Agri")  # Exemple
-
+# données compositionnelles
+compositionnal_vars <- c("HLM", "Ouvrier", "Employe", "Cadres", "Artisant", "Agri")
 ```
+
 ```{r}
-# PCA
-pca_result <- prcomp(df %>% select_if(is.numeric), scale. = TRUE)
+# Effectuer une transformation CLR sur les données compositionnelles
+clr_data <- clr(df[, compositionnal_vars])
+
+# Effectuer une PCA sur les données transformées
+pca_result <- prcomp(clr_data, scale. = TRUE)
 summary(pca_result)
 
-# Visualisation des résultats PCA
+# Visualiser les résultats PCA
 biplot(pca_result)
 ```
 PC1 est la composante la plus importante, expliquant une grande partie de la variance dans vos données.
@@ -70,42 +101,37 @@ PC2 et PC3 sont également significatifs mais expliquent beaucoup moins de varia
 df_clean <- df[, !colnames(df) %in% c("X", "Department", "Code")]
 ```
 
-
 ```{r}
+# Variables compositionnelles
+compositionnal_vars <- c("HLM", "Ouvrier", "Employe", "Cadres", "Artisant", "Agri")
+
+# Effectuer une transformation CLR sur les données compositionnelles
+clr_data <- clr(df[, compositionnal_vars])
+
+# Créer un nouveau dataframe pour l'ACP, en combinant clr_data avec d'autres variables si nécessaire
+df_clr <- df_clean  # Copie de df_clean
+df_clr[, compositionnal_vars] <- clr_data  # Remplace les colonnes compositionnelles par clr_data
+
+# Première ACP avec CLR
+result_acp_2 <- PCA(df_clr, scale.unit = TRUE, ncp = 5, graph = FALSE)
+fviz_screeplot(result_acp_2)
+fviz_pca_var(result_acp_2)
+fviz_pca_ind(result_acp_2)
+
+# Deuxième ACP sans CLR
 data_acp <- scale(df_clean[sapply(df_clean, is.numeric)])
 result_acp <- PCA(df_clean, scale.unit = TRUE, ncp = 5, graph = FALSE)
-
 fviz_screeplot(result_acp)
 fviz_pca_var(result_acp)
 fviz_pca_ind(result_acp)
 ```
+La différence entre la PCA avec et sans la transformation des donnée est assez significative. On remarque par exemple que les variables HLP, PI et Cadres on une forte corrélation avec l'axe 1 et la variable employe avec l'axe 2 alors que sans la tranformation des données les variables qui ont une forte corrélation avec l'axe 2 sont Taux de pauvreté, taux d'absetention et taux de chomage. Pour l'axe 1 il s'agissait de Agriculteur et Non Diplomé.
+
+Là ou il y a une grande différence c'est au niveau du % d'explication obtenu via la prmière dimension. La première dimension explique 34% de la variance lorsqu'on en transforme pas les données et elle explique 42% de la variance lors que les données sont transformées et traitées correctement.
+
+Sur 2 dimensions on est donc à 34.8 + 23.9; soit 58.7% environ de variance expliquée par les 2 premières dimensions. Suite au traitement des variables cette valeur passe à 42.1 + 22.5; soit 64.6%.
+
 
 ```{r}
-# Préparer le dataset : sélectionner les colonnes pertinentes et ignorer celles qui n'ont pas de valeur ajoutée
-df_acm <- df %>%
-  select(-c(Department, Code))
 
-# Assurez-vous que les colonnes de votre dataset sont de type facteur si nécessaire
-df_acm <- df_acm %>%
-  mutate(across(everything(), as.factor))
-
-# Réaliser l'ACM
-acm_result <- MCA(df_acm, graph = FALSE)
-
-# Visualiser les résultats de l'ACM avec des ajustements
-fviz_mca_biplot(acm_result, 
-                 repel = TRUE,        # Évite le chevauchement des étiquettes
-                 geom.ind = "point",  # Utilise des points pour les individus
-                 geom.var = "arrow",   # Utilise des flèches pour les variables
-                 label = "none",       # N'affiche pas les labels
-                 pointsize = 2,        # Taille des points
-                 col.var = "cos2",     # Couleur des flèches en fonction de la qualité de représentation
-                 gradient.cols = "RdYlBu") +  # Choix des couleurs
-  labs(title = "Analyse en Composantes Multiples (ACM)", 
-       x = "Dim 1", 
-       y = "Dim 2") +
-  theme_minimal() +
-  theme(legend.position = "bottom")  # Position de la légende
 ```
-
-
