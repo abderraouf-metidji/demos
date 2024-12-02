@@ -2,15 +2,6 @@
 title: "Analyse_Univarié"
 output: html_notebook
 ---
-# Installation les packages
-```{r}
-install.packages("FactoMineR")
-install.packages("factoextra")
-install.packages("compositions")
-install.packages("tidyverse")
-```
-
-
 # Installation et import des librairies tidyverse
 ```{r}
 library(devtools)
@@ -19,6 +10,10 @@ library(factoextra)
 library(compositions)
 library(tidyverse)
 library(GGally)
+library(stats)
+library(ggplot2)
+library(tidyr)
+library(car)
 ```
 
 # Lecture du fichier csv
@@ -47,19 +42,47 @@ data_quant <- data %>%
     select(HLM, Salairemoy, Ouvrier, Employe, PI, Cadres, Artisant, Agri, TxPauv, NonDiplome, txcho, txabs)
 ```
 
+
+
 # ACP avec données compositionnelles
 ```{r}
-PCA(data_quant, scale.unit = F, ncp = 5, graph = T)
+PCA(data_quant, scale.unit = TRUE, ncp = 5, graph = T)
 ```
 
 ```{r}
 data_nocomp <- data %>%
     select(Salairemoy, TxPauv, txcho, txabs)
 
-PCA(data_nocomp, scale.unit = F, ncp = 5, graph = T)
+PCA(data_nocomp, scale.unit = TRUE, ncp = 5, graph = T)
 ```
 # Regression Multiple
 ```{r}
 ggpairs(data_nocomp)
 ```
 
+## Analyse univarié TxAbs
+```{r}
+hist(data_nocomp$txabs,
+     main="Distribution du taux d'abstention",
+     xlab="Taux d'abstention",
+     ylab="Fréquence",
+     col="blue",
+     border="red")
+```
+## Analyse Khi-deux
+```{r}
+data_comp <- data %>%
+  select(Ouvrier, Employe, PI, Cadres, Artisant, Agri)
+```
+
+```{r}
+resultat_chi2 <- chisq.test(data_quant)
+resultat_chi2_nocomp <- chisq.test(data_nocomp)
+resultat_chi2_comp <- chisq.test(data_comp)
+```
+
+```{r}
+print(resultat_chi2)
+print(resultat_chi2_nocomp)
+print(resultat_chi2_comp)
+```
