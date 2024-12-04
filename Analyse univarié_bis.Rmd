@@ -14,7 +14,7 @@ library(sf)
 library(ggcorrplot)
 ```
 
-# Remplacez "path_to_file" par le chemin vers votre fichier Excel
+# Lecture du jeu de données
 ```{r}
 data <- read_csv("data/data_abs.csv")
 ```
@@ -32,12 +32,6 @@ summary(data)
 # Vérification des valeurs manquantes
 ```{r}
 colSums(is.na(data))
-```
-
-# Optionnel : Imputation des valeurs manquantes (exemple avec la moyenne)
-```{r}
-data <- data %>%
-  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 ```
 
 # Statistiques descriptives
@@ -86,13 +80,6 @@ ggplot(data, aes(y = Salairemoy)) +
   theme_minimal()
 ```
 
-# Diagramme en barres pour une variable qualitative (exemple : une variable catégorielle)
-```{r}
-ggplot(data, aes(x = factor(Department))) +
-  geom_bar(fill = "purple") +
-  labs(title = "Distribution d'une variable catégorielle", x = "Catégories", y = "Fréquence")
-```
-
 # Calcul des corrélations (variables numériques uniquement)
 ```{r}
 cor_matrix <- data %>%
@@ -102,7 +89,16 @@ cor_matrix <- data %>%
 
 # Heatmap des corrélations
 ```{r}
-ggcorrplot(cor_matrix, lab = TRUE, title = "Matrice de corrélation")
+ggcorrplot(cor_matrix, lab = TRUE, 
+           title = "Matrice de corrélation",
+           lab_size = 3) +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    legend.title = element_text(size = 14)
+  )
 ```
 
 # Charger un shapefile (remplacez par le chemin de votre fichier géographique)

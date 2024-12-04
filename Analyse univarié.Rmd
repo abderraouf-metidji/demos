@@ -76,13 +76,37 @@ data_comp <- data %>%
 ```
 
 ```{r}
-resultat_chi2 <- chisq.test(data_quant)
-resultat_chi2_nocomp <- chisq.test(data_nocomp)
 resultat_chi2_comp <- chisq.test(data_comp)
 ```
 
 ```{r}
-print(resultat_chi2)
-print(resultat_chi2_nocomp)
 print(resultat_chi2_comp)
 ```
+
+
+```{r}
+qualitative_data <- data %>%
+  select(HLM, Ouvrier, Employe, PI, Cadres, Artisant, Agri, NonDiplome)
+```
+
+
+```{r}
+str(qualitative_data)
+```
+
+
+```{r}
+qualitative_data <- qualitative_data %>%
+  mutate(across(everything(), as.factor))
+```
+
+
+```{r}
+acm_result <- MCA(qualitative_data, graph = FALSE)
+```
+
+
+```{r}
+summary(acm_result)
+```
+
