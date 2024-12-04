@@ -1,0 +1,145 @@
+# Installation des packages nécessaires (si non installés)
+``` {r}
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(readxl)) install.packages("readxl")
+if (!require(sf)) install.packages("sf")
+if (!require(ggcorrplot)) install.packages("ggcorrplot")
+```
+
+# Chargement des packages
+``` {r}
+library(tidyverse)
+library(readxl)
+library(sf)
+library(ggcorrplot)
+```
+
+# Remplacez "path_to_file" par le chemin vers votre fichier Excel
+```{r}
+data <- read_csv("data/data_abs.csv")
+```
+
+# Aperçu des données
+```{r}
+glimpse(data)
+```
+
+# Résumé statistique de toutes les variables
+```{r}
+summary(data)
+```
+
+# Vérification des valeurs manquantes
+```{r}
+colSums(is.na(data))
+```
+
+# Optionnel : Imputation des valeurs manquantes (exemple avec la moyenne)
+```{r}
+data <- data %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+# Statistiques descriptives
+```{r}
+summary(data$txabs)
+```
+
+# Distribution
+```{r}
+ggplot(data, aes(x = txabs)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "white") +
+  labs(title = "Distribution du taux d'abstention", x = "Taux d'abstention", y = "Fréquence")
+
+```
+
+# Boxplot
+```{r}
+ggplot(data, aes(y = txabs)) +
+  geom_boxplot(fill = "orange") +
+  labs(title = "Boxplot du taux d'abstention", y = "Taux d'abstention")
+```
+
+# Fonction pour analyser une variable quantitative
+```{r}
+analyze_numeric <- function(var_name) {
+  var <- data[[var_name]]
+  print(summary(var))
+  
+  ggplot(data, aes_string(x = var_name)) +
+    geom_histogram(binwidth = 5, fill = "blue", color = "white") +
+    labs(title = paste("Distribution de", var_name), x = var_name, y = "Fréquence") +
+    theme_minimal()
+}
+```
+
+# Exemple pour la variable Salairemoy
+```{r}
+analyze_numeric("Salairemoy")
+```
+
+# Boxplot pour Salairemoy
+```{r}
+ggplot(data, aes(y = Salairemoy)) +
+  geom_boxplot(fill = "green") +
+  labs(title = "Boxplot du Salaire Moyen", y = "Salaire Moyen") +
+  theme_minimal()
+```
+
+# Diagramme en barres pour une variable qualitative (exemple : une variable catégorielle)
+```{r}
+ggplot(data, aes(x = factor(Department))) +
+  geom_bar(fill = "purple") +
+  labs(title = "Distribution d'une variable catégorielle", x = "Catégories", y = "Fréquence")
+```
+
+# Calcul des corrélations (variables numériques uniquement)
+```{r}
+cor_matrix <- data %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+```
+
+# Heatmap des corrélations
+```{r}
+ggcorrplot(cor_matrix, lab = TRUE, title = "Matrice de corrélation")
+```
+
+# Charger un shapefile (remplacez par le chemin de votre fichier géographique)
+```{r}
+france_map <- st_read("shapefile/georef-france-departement-millesime.shp")
+```
+
+# Jointure des données
+```{r}
+map_data <- france_map %>%
+  left_join(data, by = c("dep_code" = "Code"))
+```
+
+# Carte du taux d'abstention
+```{r}
+ggplot(map_data) +
+  geom_sf(aes(fill = txabs)) +
+  scale_fill_viridis_c() +
+  labs(title = "Taux d'abstention par département", fill = "txabs")
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
