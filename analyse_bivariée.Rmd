@@ -133,5 +133,54 @@ Sur 2 dimensions on est donc à 34.8 + 23.9; soit 58.7% environ de variance expl
 
 
 ```{r}
+acm_data <- df %>%
+  select(Ouvrier, Employe, PI, Cadres, Artisant, Agri)
+
+str(acm_data)
+
+acm_data<-acm_data %>%
+  mutate(across(everything(), as.factor))
+
+acm_result<-MCA(acm_data, graph = FALSE)
+
+summary(acm_result)
+```
+
+# Commenter le résultat
+
+```{r}
+# Liste des colonnes
+variables <- colnames(acm_data)
+
+# Initialiser une liste pour stocker les résultats
+results <- list()
+
+# Boucle sur toutes les paires de variables
+for (i in 1:(length(variables) - 1)) {
+  for (j in (i + 1):length(variables)) {
+    var1 <- variables[i]
+    var2 <- variables[j]
+    table_contingence <- table(acm_data[[var1]], acm_data[[var2]])
+    
+    # Effectuer le test du Chi-Deux
+    test <- chisq.test(table_contingence)
+    
+    # Sauvegarder le résultat
+    results[[paste(var1, var2, sep = " vs ")]] <- list(
+      p_value = test$p.value,
+      statistic = test$statistic
+    )
+  }
+}
+
+# Afficher les résultats
+print(results)
 
 ```
+
+# Commenter le résultat
+
+```{r}
+
+```
+
