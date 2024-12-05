@@ -75,6 +75,8 @@ ggplot(df, aes(x = TxPauv, y = txabs)) +
 
 ```
 
+Ce premier graphique de test nous permet de voir la relation entre le taux de pauvrete et le taux d'abstention. S'agissant de notre premiere hypothese nous pourrons confirmer ou non cette hypothese; a savoir si la pauvrete a un impact reel sur le taux d'abstention.
+
 
 # Variables descriptives
 ```{r}
@@ -85,6 +87,9 @@ length(descriptive_vars)  # Nombre de variables
 # données compositionnelles
 compositionnal_vars <- c("HLM", "Ouvrier", "Employe", "Cadres", "Artisant", "Agri")
 ```
+Il y a 13 variables descriptives dans notre dataset. Ces variables representent les differents taux ainsi que les variables compositionnelles. 
+
+# PCA
 
 ```{r}
 # Effectuer une transformation CLR sur les données compositionnelles
@@ -135,12 +140,12 @@ Là ou il y a une grande différence c'est au niveau du % d'explication obtenu v
 
 Sur 2 dimensions on est donc à 34.8 + 23.9; soit 58.7% environ de variance expliquée par les 2 premières dimensions. Suite au traitement des variables cette valeur passe à 42.1 + 22.5; soit 64.6%.
 
-
+# ACM
 ```{r}
 acm_data <- df %>%
   select(Ouvrier, Employe, PI, Cadres, Artisant, Agri)
 
-str(acm_data)
+str(df_clr)
 
 acm_data<-acm_data %>%
   mutate(across(everything(), as.factor))
@@ -149,8 +154,23 @@ acm_result<-MCA(acm_data, graph = FALSE)
 
 summary(acm_result)
 ```
+```{r}
+# Visualisation des individus
+fviz_mca_ind(acm_result, 
+             repel = TRUE,  # Éviter le chevauchement des labels
+             ggtheme = theme_minimal())
 
-# Commenter le résultat
+# Visualisation des variables
+fviz_mca_var(acm_result, 
+             repel = TRUE,  # Éviter le chevauchement des labels
+             ggtheme = theme_minimal())
+
+# Visualisation combinée des individus et des variables
+fviz_mca_biplot(acm_result, 
+                repel = TRUE,  # Éviter le chevauchement des labels
+                ggtheme = theme_minimal())
+```
+
 
 ```{r}
 # Liste des colonnes
@@ -179,10 +199,37 @@ for (i in 1:(length(variables) - 1)) {
 
 # Afficher les résultats
 print(results)
+```
+```{r}
+# Initialiser une liste pour stocker les résultats significatifs
+significant_results <- list()
+
+# Boucle sur toutes les paires de variables
+for (i in 1:(length(variables) - 1)) {
+  for (j in (i + 1):length(variables)) {
+    var1 <- variables[i]
+    var2 <- variables[j]
+    table_contingence <- table(acm_data[[var1]], acm_data[[var2]])
+    
+    # Effectuer le test du Chi-deux
+    test <- chisq.test(table_contingence)
+    
+    # Sauvegarder uniquement les résultats significatifs (p-value < 0.05)
+    if (test$p.value < 0.05) {
+      significant_results[[paste(var1, var2, sep = " vs ")]] <- list(
+        p_value = test$p.value,
+        statistic = test$statistic
+      )
+    }
+  }
+}
+
+# Afficher les résultats significatifs
+print(significant_results)
 
 ```
 
-# Commenter le résultat
+On remarque que les relations significatives se trouvent principalement autour des variables Ouvrier vs Cadres, Employé vs Artisan, Employé vs Agriculteur, PI vs Cadre et PI vs Artisan. Il s'agit des seuls résultats se trouvant en dessous de 0,05 et qu'on peut donc considéré comme ayant une relation statistique significative. 
 
 ## Régression univariée pour toutes les variables
 ```{r}
@@ -309,6 +356,17 @@ results_clr <- results_clr %>%
 results_clr
 ```
 
+Pour en revenir rapidement au p-value qu'on retrouve dans ces résultats on remarque que : 
+- Taux de pauvreté (TxPauv) : Une augmentation du taux de pauvreté est fortement associée à une hausse de la variable cible (p = 0.000, R² = 0.263).
+- Taux de chômage (txcho) : Il a également un effet significatif et positif (p = 0.000, R² = 0.124).
+- Part des employés : Cette catégorie socio-professionnelle montre une relation significative avec la variable cible (p = 0.008, R² = 0.072).
+- Part des agriculteurs : Effet significatif mais négatif sur la variable cible (p = 0.008, R² = 0.073).
+- Part des non-diplômés : Une relation significative et positive est observée (p = 0.003, R² = 0.088).
+- Part des locataires HLM : Impact significatif (p = 0.003, R² = 0.092).
+
+Globalement on remarque que :
+- Les variables significatives expliquent une part variable de la variance (R² entre 0.072 et 0.263), avec TxPauv étant le meilleur prédicteur.
+- Certaines variables n'expliquent presque rien de la variance (R² ≈ 0).
 
 ```{r}
 results_clr %>%
@@ -324,7 +382,7 @@ results_clr %>%
   geom_text(aes(label = sprintf("R² = %.3f", r_squared)), hjust = -0.2)
 ```
 
-## Regression linéaire sur toutes les variables
+## Regression linéaire sur toutes les variables (représentation graphique)
 ```{r}
 plots <- map(variables, function(var) {
   ggplot(df, aes_string(x = var, y = "txabs")) +
@@ -416,9 +474,10 @@ ggsave("Saved/relation_variables_txabs_with_r2.png", plot = combined_plot, width
 write.csv(r_squared_table, "Saved/r_squared_results.csv", row.names = FALSE)
 ```
 
+# Régression multiple
 
 ```{r}
-variables_pertinentes <- c("Ouvrier", "Salairemoy", "Artisant")
+variables_pertinentes <- c("TxPauv", "txcho", "NonDiplome", "Agri")
 ```
 
 
@@ -428,14 +487,13 @@ modele_multiple <- lm(formule, data = df_clr)
 summary(modele_multiple)
 ```
 
+On remarque que les variables TxPauv, NonDiplome & Agri sont significativement associées à la variable cible taux d'abstention.
 
 ```{r}
 par(mfrow = c(2, 2))
 plot(modele_multiple)
 vif(modele_multiple)
 ```
-
-
 ```{r}
 capture.output(summary(modele_multiple), file = "Saved/resume_modele_multiple.txt")
 ```
@@ -454,7 +512,7 @@ ggplot(coef_df, aes(x = reorder(term, estimate), y = estimate, fill = p.value < 
   theme_minimal()
 ```
 
-## Clustering
+# Clustering
 ```{r}
 variables_clustering <- c("TxPauv", "HLM", "Salairemoy", "txcho", "Ouvrier", "Employe", "PI", "Cadres", "Artisant", "Agri")
 
@@ -506,6 +564,42 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster)) +
   theme_minimal()
 ```
 
+En se basant sur la méthode du coude, k = 2 semble être un bon choix pour la segmentation.
+La séparation des clusters dans le graphique des composantes principales est globalement satisfaisante, mais un chevauchement partiel pourrait justifier des ajustements ou une validation avec des méthodes alternatives.
+
+# Test avec 3 clusters 
+
+```{r}
+# Appliquer K-means avec k=3
+kmeans_result <- kmeans(df_standardized, centers = 3, nstart = 25)
+
+# Ajouter les clusters au dataframe de clustering
+df_clustering$cluster <- as.factor(kmeans_result$cluster)
+```
+
+```{r}
+# Appliquer K-means avec k=3
+kmeans_result <- kmeans(df_standardized, centers = 3, nstart = 25)
+
+# Ajouter les clusters au dataframe de clustering
+df_clustering$cluster <- as.factor(kmeans_result$cluster)
+
+# Appliquer PCA pour réduire la dimensionnalité à 2 dimensions
+pca_result <- prcomp(df_standardized, scale. = TRUE)
+
+# Extraire les deux premières composantes principales
+pca_df <- data.frame(pca_result$x[, 1:2], cluster = df_clustering$cluster)
+
+# Visualiser les clusters avec ggplot2
+library(ggplot2)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(size = 3) +
+  labs(title = "Clustering K-means basé sur les variables socio-économiques (k=3)",
+       x = "Première composante principale",
+       y = "Deuxième composante principale") +
+  theme_minimal()
+```
+On remarque qu'ajouter un 3ème cluster en resoud en aucun cas le problème de limites floues ni de chevauchement entre les différents groupes. 
 
 ```{r}
 # Calculer les moyennes des variables pour chaque cluster
@@ -523,9 +617,4 @@ print(cluster_means)
 write.csv(df_clustering, "Saved/clustering_results.csv", row.names = FALSE)
 
 ggsave("Saved/clustering_plot.png", plot = last_plot(), width = 10, height = 6, dpi = 300)
-```
-
-
-```{r}
-
 ```

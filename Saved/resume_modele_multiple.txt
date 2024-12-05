@@ -4,18 +4,20 @@ lm(formula = formule, data = df_clr)
 
 Residuals:
     Min      1Q  Median      3Q     Max 
--4.2775 -1.4089 -0.1664  1.2043 12.6169 
+-3.5119 -1.3767 -0.0732  0.9528  8.4850 
 
 Coefficients:
             Estimate Std. Error t value Pr(>|t|)    
-(Intercept) 21.05731    3.26711   6.445 5.23e-09 ***
-Ouvrier     -0.31510    1.34509  -0.234    0.815    
-Salairemoy  -0.05674    0.20382  -0.278    0.781    
-Artisant     0.36793    1.10045   0.334    0.739    
+(Intercept)  9.19311    2.05181   4.480 2.18e-05 ***
+TxPauv       0.67294    0.10933   6.155 2.05e-08 ***
+txcho       -0.62374    0.19783  -3.153   0.0022 ** 
+NonDiplome   0.12959    0.06143   2.110   0.0377 *  
+Employe     -0.47054    1.98778  -0.237   0.8134    
+Agri        -1.84754    0.43654  -4.232 5.56e-05 ***
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-Residual standard error: 2.686 on 92 degrees of freedom
-Multiple R-squared:  0.002955,	Adjusted R-squared:  -0.02956 
-F-statistic: 0.09087 on 3 and 92 DF,  p-value: 0.9649
+Residual standard error: 1.963 on 90 degrees of freedom
+Multiple R-squared:  0.4791,	Adjusted R-squared:  0.4501 
+F-statistic: 16.55 on 5 and 90 DF,  p-value: 1.462e-11
 
