@@ -1,0 +1,21 @@
+
+Call:
+lm(formula = formule, data = df_clr)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-4.2775 -1.4089 -0.1664  1.2043 12.6169 
+
+Coefficients:
+            Estimate Std. Error t value Pr(>|t|)    
+(Intercept) 21.05731    3.26711   6.445 5.23e-09 ***
+Ouvrier     -0.31510    1.34509  -0.234    0.815    
+Salairemoy  -0.05674    0.20382  -0.278    0.781    
+Artisant     0.36793    1.10045   0.334    0.739    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 2.686 on 92 degrees of freedom
+Multiple R-squared:  0.002955,	Adjusted R-squared:  -0.02956 
+F-statistic: 0.09087 on 3 and 92 DF,  p-value: 0.9649
+

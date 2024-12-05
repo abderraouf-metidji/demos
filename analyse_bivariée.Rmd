@@ -4,6 +4,10 @@ library(tidyverse)
 library(compositions)
 library(factoextra)
 library(FactoMineR)
+library(broom)
+library(purrr)
+library(patchwork)
+library(car)
 ```
 
 # Import du dataset
@@ -180,7 +184,348 @@ print(results)
 
 # Commenter le résultat
 
+## Régression univariée pour toutes les variables
 ```{r}
+variables <- c("TxPauv", "HLM", "Salairemoy", "Ouvrier", "Employe", "PI", "Cadres", "Artisant", "Agri", "NonDiplome", "txcho")
+```
+
+
+### Utilisation du dataframe de départ
+```{r}
+perform_regression <- function(var) {
+  formula <- as.formula(paste("txabs ~", var))
+  model <- lm(formula, data = df)
+  summary_model <- summary(model)
+  tidy(model) %>%
+    mutate(variable = var, r_squared = summary_model$r.squared)
+}
+```
+
+
+```{r}
+results <- map_dfr(variables, perform_regression)
+
+results
+```
+
+
+```{r}
+results %>%
+  ggplot(aes(x = reorder(variable, estimate), y = estimate, fill = p.value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Effet des variables sur le taux d'abstention",
+       x = "Variable",
+       y = "Coefficient estimé",
+       fill = "Significatif (p < 0.05)") +
+  theme_minimal()
+```
+
+
+```{r}
+results <- results %>%
+  mutate(r_squared = round(r_squared, 3),
+         p.value = round(p.value, 3))
 
 ```
 
+
+```{r}
+results <- results %>%
+  mutate(r_squared_pretty = sprintf("%.3f", r_squared),
+         p.value = sprintf("%.3f", p.value))
+```
+
+
+```{r}
+results
+```
+
+
+```{r}
+results %>%
+  ggplot(aes(x = reorder(variable, estimate), y = estimate, fill = p.value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Effet des variables sur le taux d'abstention",
+       x = "Variable",
+       y = "Coefficient estimé",
+       fill = "Significatif (p < 0.05)") +
+  theme_minimal() +
+  theme(axis.title.y = element_text(face = "bold")) +
+  geom_text(aes(label = sprintf("R² = %.3f", r_squared)), hjust = -0.2)
+```
+
+
+### Utilisation du dataframe nettoyé avec CLR
+```{r}
+perform_regression_clr <- function(var) {
+  formula <- as.formula(paste("txabs ~", var))
+  model <- lm(formula, data = df_clr)
+  summary_model <- summary(model)
+  tidy(model) %>%
+    mutate(variable = var, r_squared = summary_model$r.squared)
+}
+```
+
+
+```{r}
+results_clr <- map_dfr(variables, perform_regression_clr)
+
+results_clr
+```
+
+
+```{r}
+results_clr %>%
+  ggplot(aes(x = reorder(variable, estimate), y = estimate, fill = p.value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Effet des variables sur le taux d'abstention",
+       x = "Variable",
+       y = "Coefficient estimé",
+       fill = "Significatif (p < 0.05)") +
+  theme_minimal()
+```
+
+
+
+```{r}
+results_clr <- results_clr %>%
+  mutate(r_squared = round(r_squared, 3),
+         p.value = round(p.value, 3))
+
+```
+
+
+```{r}
+results_clr <- results_clr %>%
+  mutate(r_squared_pretty = sprintf("%.3f", r_squared),
+         p.value = sprintf("%.3f", p.value))
+```
+
+
+```{r}
+results_clr
+```
+
+
+```{r}
+results_clr %>%
+  ggplot(aes(x = reorder(variable, estimate), y = estimate, fill = p.value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Effet des variables sur le taux d'abstention",
+       x = "Variable",
+       y = "Coefficient estimé",
+       fill = "Significatif (p < 0.05)") +
+  theme_minimal() +
+  theme(axis.title.y = element_text(face = "bold")) +
+  geom_text(aes(label = sprintf("R² = %.3f", r_squared)), hjust = -0.2)
+```
+
+## Regression linéaire sur toutes les variables
+```{r}
+plots <- map(variables, function(var) {
+  ggplot(df, aes_string(x = var, y = "txabs")) +
+    geom_point() +
+    geom_smooth(method = "lm", se = TRUE) + # Régression linéaire avec intervalle de confiance
+    theme_minimal() +
+    labs(title = paste("Relation entre", var, "et le taux d'abstention"),
+         x = var,
+         y = "Taux d'abstention")
+})
+```
+
+```{r}
+combined_plot <- wrap_plots(plots, ncol = 3)
+combined_plot
+```
+
+
+```{r}
+# Créer un dossier "Saved" s'il n'existe pas
+if (!dir.exists("Saved")) {
+  dir.create("Saved")
+}
+```
+
+
+```{r}
+ggsave("Saved/relation_variables_txabs.png", plot = combined_plot, width = 15, height = 10, dpi = 300)
+```
+
+
+```{r}
+walk2(plots, variables, ~ ggsave(paste0("Saved/", .y, "_relation_txabs.png"), plot = .x, width = 6, height = 4, dpi = 300))
+```
+
+
+```{r}
+# Générer les graphiques et extraire les R²
+results <- map(variables, function(var) {
+  # Ajuster un modèle de régression linéaire
+  model <- lm(as.formula(paste("txabs ~", var)), data = df)
+  
+  # Calculer le R²
+  r_squared <- summary(model)$r.squared
+  
+  # Générer le graphique
+  plot <- ggplot(df, aes_string(x = var, y = "txabs")) +
+    geom_point() +
+    geom_smooth(method = "lm", se = TRUE) +
+    theme_minimal() +
+    labs(
+      title = paste("Relation entre", var, "et le taux d'abstention"),
+      x = var,
+      y = "Taux d'abstention",
+      subtitle = paste("R² =", round(r_squared, 3)) # Ajouter le R² comme sous-titre
+    )
+  
+  # Retourner le graphique et le R²
+  list(variable = var, plot = plot, r_squared = r_squared)
+})
+```
+
+
+```{r}
+# Extraire les R² dans un tableau
+r_squared_table <- map_dfr(results, ~ data.frame(variable = .x$variable, r_squared = .x$r_squared))
+
+# Afficher les R²
+print(r_squared_table)
+```
+
+
+```{r}
+# Extraire les graphiques
+plots <- map(results, "plot")
+
+# Combiner les graphiques
+combined_plot <- wrap_plots(plots, ncol = 3)
+combined_plot
+```
+
+
+```{r}
+ggsave("Saved/relation_variables_txabs_with_r2.png", plot = combined_plot, width = 15, height = 10, dpi = 300)
+```
+
+
+```{r}
+write.csv(r_squared_table, "Saved/r_squared_results.csv", row.names = FALSE)
+```
+
+
+```{r}
+variables_pertinentes <- c("Ouvrier", "Salairemoy", "Artisant")
+```
+
+
+```{r}
+formule <- as.formula(paste("txabs ~", paste(variables_pertinentes, collapse = " + ")))
+modele_multiple <- lm(formule, data = df_clr)
+summary(modele_multiple)
+```
+
+
+```{r}
+par(mfrow = c(2, 2))
+plot(modele_multiple)
+vif(modele_multiple)
+```
+
+
+```{r}
+capture.output(summary(modele_multiple), file = "Saved/resume_modele_multiple.txt")
+```
+
+
+```{r}
+coef_df <- broom::tidy(modele_multiple)
+
+ggplot(coef_df, aes(x = reorder(term, estimate), y = estimate, fill = p.value < 0.05)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Coefficients de la régression multiple",
+       x = "Variable",
+       y = "Coefficient estimé",
+       fill = "Significatif (p < 0.05)") +
+  theme_minimal()
+```
+
+## Clustering
+```{r}
+variables_clustering <- c("TxPauv", "HLM", "Salairemoy", "txcho", "Ouvrier", "Employe", "PI", "Cadres", "Artisant", "Agri")
+
+# Filtrer les données et enlever les valeurs manquantes
+df_clustering <- df %>%
+  select(all_of(variables_clustering)) %>%
+  drop_na()
+
+# Standardiser les données (important pour les méthodes de clustering)
+df_standardized <- scale(df_clustering)
+```
+
+
+```{r}
+# Calculer les sommes des carrés intra-cluster pour différents k
+wss <- sapply(1:10, function(k) {
+  kmeans(df_standardized, centers = k, nstart = 25)$tot.withinss
+})
+
+# Tracer le graphique pour visualiser le "coude"
+plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
+     xlab = "Nombre de clusters", ylab = "Somme des carrés intra-cluster")
+```
+
+
+```{r}
+# Appliquer K-means avec k=3 (ou un autre nombre de clusters déterminé par le coude)
+kmeans_result <- kmeans(df_standardized, centers = 2, nstart = 25)
+
+# Visualiser les résultats du clustering
+df_clustering$cluster <- as.factor(kmeans_result$cluster)
+```
+
+
+```{r}
+# Appliquer PCA pour réduire la dimensionnalité à 2 dimensions
+pca_result <- prcomp(df_standardized, scale. = TRUE)
+
+# Extraire les deux premières composantes principales
+pca_df <- data.frame(pca_result$x[, 1:2], cluster = df_clustering$cluster)
+
+# Visualiser les clusters avec ggplot2
+library(ggplot2)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point(size = 3) +
+  labs(title = "Clustering K-means basé sur les variables socio-économiques",
+       x = "Première composante principale",
+       y = "Deuxième composante principale") +
+  theme_minimal()
+```
+
+
+```{r}
+# Calculer les moyennes des variables pour chaque cluster
+cluster_means <- df_clustering %>%
+  mutate(cluster = kmeans_result$cluster) %>%
+  group_by(cluster) %>%
+  summarise(across(everything(), mean))
+
+# Afficher les moyennes par cluster
+print(cluster_means)
+```
+
+
+```{r}
+write.csv(df_clustering, "Saved/clustering_results.csv", row.names = FALSE)
+
+ggsave("Saved/clustering_plot.png", plot = last_plot(), width = 10, height = 6, dpi = 300)
+```
+
+
+```{r}
+
+```
